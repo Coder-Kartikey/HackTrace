@@ -7,14 +7,14 @@ const router = express.Router();
 
 router.post("/", async (req, res) => {
   try {
-    const { trace, source } = req.body;
+    const { trace, source, session } = req.body;
 
     if (!trace || !Array.isArray(trace)) {
       return res.status(400).json({ error: "Invalid trace data" });
     }
 
     // 1. AI explanation
-    const explanation = await generateExplanation(trace);
+    const { explanation, suggestedFix } = await generateExplanation(trace);
 
     // 2. Voice generation
     const voiceBase64 = await generateVoice(explanation);
@@ -23,9 +23,12 @@ router.post("/", async (req, res) => {
     const savedTrace = await Trace.create({
       trace,
       source,
+      session,
       explanation,
+      suggestedFix,
       voice: voiceBase64
     });
+
 
     res.json({
       success: true,
@@ -42,6 +45,28 @@ router.post("/", async (req, res) => {
 router.get("/latest", async (req, res) => {
   try {
     const trace = await Trace.findOne().sort({ createdAt: -1 });
+    res.json(trace);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch trace" });
+  }
+});
+
+// Get all traces (latest first)
+router.get("/", async (req, res) => {
+  try {
+    const traces = await Trace.find()
+      .sort({ createdAt: -1 })
+      .select("session createdAt");
+    res.json(traces);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch traces" });
+  }
+});
+
+// Get trace by ID
+router.get("/:id", async (req, res) => {
+  try {
+    const trace = await Trace.findById(req.params.id);
     res.json(trace);
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch trace" });

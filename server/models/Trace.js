@@ -3,9 +3,14 @@ const mongoose = require("mongoose");
 const TraceSchema = new mongoose.Schema(
   {
     source: String,
+    session: {
+      id: String,
+      label: String
+    },
     trace: Array,
     explanation: String,
-    voice: String // base64 audio
+    suggestedFix: String,
+    voice: String
   },
   { timestamps: true }
 );

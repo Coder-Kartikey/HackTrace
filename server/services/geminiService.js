@@ -45,12 +45,12 @@ const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1/models/${G
 
 async function generateExplanation(trace) {
   const prompt = `
-You are a debugging assistant.
+You are a senior software engineer debugging an application.
 
-Explain:
-1. Why the program failed
-2. What caused the error
-3. What the developer should fix
+Given the execution trace below:
+1. Explain why the program failed
+2. Identify the root cause
+3. Suggest a concrete fix the developer should apply
 
 Execution Trace:
 ${JSON.stringify(trace, null, 2)}
