@@ -1,8 +1,8 @@
 import { ArrowLeft, Clock, FileText, Copy } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { fetchTraceById } from '../api';
-import { getTraceDetail, type TraceDetail as TraceDetailType } from '../mockData';
+import { getTraceById } from '../api';
+import { type TraceDetail as TraceDetailType } from '../mockData';
 import { PatternBadge } from './PatternBadge';
 import { ExecutionGraph } from './ExecutionGraph';
 import { Timeline } from './Timeline';
@@ -33,15 +33,18 @@ export function TraceDetail() {
 
     const mapApiTraceDetail = (item: any): TraceDetailType | null => {
       if (!item) return null;
-      const stack = Array.isArray(item.trace)
-        ? item.trace.map((entry: any, index: number) => ({
-            function: entry.fn ?? entry.function ?? `step_${index + 1}`,
-            file: entry.file ?? entry.source ?? 'unknown',
-            line: entry.line ?? 0,
-            column: entry.column ?? 0,
-            duration: entry.duration ?? entry.time ?? 0,
-          }))
-        : [];
+      
+      // Extract stack from trace.stack (new schema) or fallback to trace array (old schema)
+      const stackRaw = item.trace?.stack || (Array.isArray(item.trace) ? item.trace : []);
+      const stack = stackRaw.map((entry: any, index: number) => ({
+        function: entry.fn ?? entry.function ?? `step_${index + 1}`,
+        file: entry.file ?? entry.source ?? 'unknown',
+        line: entry.line ?? 0,
+        column: entry.column ?? 0,
+        duration: entry.duration ?? entry.time ?? 0,
+        type: entry.type,
+        errorMessage: entry.errorMessage,
+      }));
 
       const failurePathRaw = item.pattern?.failurePath;
       const failurePath = Array.isArray(failurePathRaw)
@@ -50,7 +53,7 @@ export function TraceDetail() {
           ? failurePathRaw.split('>')
           : [];
 
-      const totalDuration = stack.reduce((sum, cur) => sum + (Number(cur.duration) || 0), 0);
+      const totalDuration = item.trace?.totalDuration ?? stack.reduce((sum, cur) => sum + (Number(cur.duration) || 0), 0);
 
       return {
         _id: item._id ?? item.id ?? 'unknown',
@@ -74,9 +77,11 @@ export function TraceDetail() {
                 line: 0,
                 column: 0,
                 duration: 0,
+                type: undefined,
+                errorMessage: undefined,
               })),
           totalDuration,
-          errorMessage: item.trace?.errorMessage ?? item.errorMessage ?? 'No error message provided.',
+          errorMessage: item.trace?.errorMessage ?? 'No error message provided.',
         },
         explanation: item.explanation ?? 'No explanation provided.',
         suggestedFix: item.suggestedFix ?? 'No suggested fix provided.',
@@ -98,30 +103,23 @@ export function TraceDetail() {
       setError(null);
 
       try {
-        const data = await fetchTraceById(id);
+        const data = await getTraceById(id);
         const normalized = mapApiTraceDetail(data);
 
         if (normalized && isMounted) {
           setTrace(normalized);
-          setLoading(false);
-          return;
-        }
-
-        // Fallback to mock detail if API does not provide compatible data
-        if (isMounted) {
-          const mock = getTraceDetail(id);
-          setTrace(mock);
-          setError('Live trace data incomplete. Showing sample data.');
-          setLoading(false);
+        } else if (isMounted) {
+          setError('Invalid or incomplete trace data from server.');
+          setTrace(undefined);
         }
       } catch (err) {
         console.error('Failed to fetch trace detail', err);
         if (isMounted) {
-          const mock = getTraceDetail(id);
-          setTrace(mock);
-          setError('Could not load live trace. Showing sample data.');
-          setLoading(false);
+          setError(`Error loading trace: ${err instanceof Error ? err.message : 'Unknown error'}`);
+          setTrace(undefined);
         }
+      } finally {
+        if (isMounted) setLoading(false);
       }
     };
 
