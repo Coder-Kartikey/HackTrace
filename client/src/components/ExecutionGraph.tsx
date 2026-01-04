@@ -1,116 +1,53 @@
-type GraphNode = {
-  id: string;
-  isError?: boolean;
-};
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import type { TraceDetail } from '../mockData';
 
-type GraphEdge = {
-  from: string;
-  to: string;
-};
+interface ExecutionGraphProps {
+  trace: TraceDetail;
+}
 
-type ExecutionGraphType = {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-};
-
-export default function ExecutionGraph({
-  graph
-}: {
-  graph: ExecutionGraphType;
-}) {
-  const nodeWidth = 200;
-  const nodeHeight = 48;
-  const startX = 100;
-  const startY = 40;
-  const gapY = 90;
-
-  // ✅ VERY IMPORTANT: extra bottom padding
-  const svgHeight =
-    startY + graph.nodes.length * gapY + 80;
-
-  const positions: Record<string, { x: number; y: number }> = {};
-
-  graph.nodes.forEach((node, index) => {
-    positions[node.id] = {
-      x: startX,
-      y: startY + index * gapY
-    };
-  });
+export function ExecutionGraph({ trace }: ExecutionGraphProps) {
+  const data = trace.trace.stack.map((item) => ({
+    name: item.function,
+    duration: item.duration,
+    file: item.file,
+  }));
 
   return (
-    <div className="overflow-y-auto overflow-x-hidden">
-      <svg
-        width="100%"
-        height={svgHeight}
-        style={{ overflow: "visible" }}
-      >
-        {/* Arrow marker */}
-        <defs>
-          <marker
-            id="arrow"
-            markerWidth="10"
-            markerHeight="10"
-            refX="8"
-            refY="5"
-            orient="auto"
-          >
-            <path d="M0,0 L10,5 L0,10 Z" fill="#475569" />
-          </marker>
-        </defs>
-
-        {/* Edges */}
-        {graph.edges.map((edge, idx) => {
-          const from = positions[edge.from];
-          const to = positions[edge.to];
-          if (!from || !to) return null;
-
-          return (
-            <line
-              key={idx}
-              x1={from.x + nodeWidth / 2}
-              y1={from.y + nodeHeight}
-              x2={to.x + nodeWidth / 2}
-              y2={to.y}
-              stroke="#475569"
-              strokeWidth="2"
-              markerEnd="url(#arrow)"
+    <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
+      <h3 className="mb-4 text-lg text-white">Execution Duration by Function</h3>
+      <div className="h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+            <XAxis
+              dataKey="name"
+              stroke="#71717a"
+              tick={{ fill: '#a1a1aa', fontSize: 12 }}
+              angle={-45}
+              textAnchor="end"
+              height={80}
             />
-          );
-        })}
-
-        {/* Nodes */}
-        {graph.nodes.map((node) => {
-          const pos = positions[node.id];
-          if (!pos) return null;
-
-          return (
-            <g key={node.id}>
-              <rect
-                x={pos.x}
-                y={pos.y}
-                rx="12"
-                ry="12"
-                width={nodeWidth}
-                height={nodeHeight}
-                fill={node.isError ? "#fee2e2" : "#e0f2fe"}
-                stroke={node.isError ? "#ef4444" : "#0284c7"}
-                strokeWidth="2"
-              />
-
-              <text
-                x={pos.x + nodeWidth / 2}
-                y={pos.y + nodeHeight / 2 + 5}
-                textAnchor="middle"
-                fontSize="13"
-                fill="#0f172a"
-                fontFamily="monospace"
-              >
-                {node.id}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
+            <YAxis
+              stroke="#71717a"
+              tick={{ fill: '#a1a1aa', fontSize: 12 }}
+              label={{ value: 'Duration (ms)', angle: -90, position: 'insideLeft', fill: '#71717a' }}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: '#18181b',
+                border: '1px solid #27272a',
+                borderRadius: '8px',
+                color: '#e4e4e7',
+              }}
+              labelStyle={{ color: '#e4e4e7' }}
+            />
+            <Bar dataKey="duration" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="mt-4 text-sm text-zinc-500">
+        Total execution time: <span className="text-white">{trace.trace.totalDuration}ms</span>
+      </div>
     </div>
   );
 }
