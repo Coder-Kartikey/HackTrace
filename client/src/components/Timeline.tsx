@@ -23,7 +23,7 @@ export function Timeline({ trace }: TimelineProps) {
             const line = Number.isFinite(item.line) ? item.line : '—';
             const column = Number.isFinite(item.column) ? item.column : '—';
             const durationLabel = item.duration ? `${item.duration}ms` : '—';
-            const isError = item.type === 'error' || fnName === trace.pattern.errorFn;
+            const isError = item?.type === 'error' || fnName === trace.pattern.errorFn;
             const borderColor = isError ? 'border-red-500' : 'border-blue-500';
             const dotColor = isError ? 'bg-red-500' : 'bg-blue-500';
             const cardBorder = isError ? 'border-red-500/40' : 'border-zinc-800';
@@ -51,7 +51,7 @@ export function Timeline({ trace }: TimelineProps) {
                         Line {line}:{column}
                       </span>
                     </div>
-                    {isError && item.errorMessage && (
+                    {isError && item?.errorMessage && (
                       <div className="mt-2 rounded border border-red-500/30 bg-red-500/10 px-2 py-1 text-xs text-red-300">
                         {item.errorMessage}
                       </div>

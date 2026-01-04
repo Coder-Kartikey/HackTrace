@@ -34,6 +34,8 @@ export interface TraceDetail {
       line: number;
       column: number;
       duration: number;
+      type?: string;
+      errorMessage?: string;
     }>;
     totalDuration: number;
     errorMessage: string;

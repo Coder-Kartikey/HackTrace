@@ -53,7 +53,7 @@ export function TraceDetail() {
           ? failurePathRaw.split('>')
           : [];
 
-      const totalDuration = item.trace?.totalDuration ?? stack.reduce((sum, cur) => sum + (Number(cur.duration) || 0), 0);
+      const totalDuration = item.trace?.totalDuration ?? stack.reduce((sum: number, cur: any) => sum + (Number(cur.duration) || 0), 0);
 
       return {
         _id: item._id ?? item.id ?? 'unknown',
@@ -71,7 +71,7 @@ export function TraceDetail() {
         trace: {
           stack: stack.length
             ? stack
-            : failurePath.map((fn: string, index: number) => ({
+            : failurePath.map((fn: string) => ({
                 function: fn,
                 file: 'unknown',
                 line: 0,
