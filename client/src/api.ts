@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE;
+const API_BASE = "https://hacktrace.onrender.com/api";
 
 export async function getTraces() {
   const res = await fetch(`${API_BASE}/traces`);
