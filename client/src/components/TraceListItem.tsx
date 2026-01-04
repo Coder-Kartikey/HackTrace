@@ -53,19 +53,28 @@ export function TraceListItem({ trace }: TraceListItemProps) {
             <span className="font-mono">{trace.session.id}</span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-zinc-600">Execution path:</span>
-            <div className="flex items-center gap-1">
-              {trace.pattern.failurePath.map((fn, index) => (
-                <div key={index} className="flex items-center gap-1">
-                  <code className="rounded bg-zinc-800/30 px-1.5 py-0.5 text-xs text-zinc-500">
-                    {fn}
-                  </code>
-                  {index < trace.pattern.failurePath.length - 1 && (
-                    <ChevronRight className="h-3 w-3 text-zinc-700" />
-                  )}
-                </div>
-              ))}
+          <div className="flex items-start gap-2">
+            <span className="mt-0.5 text-xs text-zinc-600">Execution path:</span>
+            <div className="flex flex-col gap-1">
+              {trace.pattern.failurePath.map((fn, index) => {
+                const isErrorFn = fn === trace.pattern.errorFn;
+                return (
+                  <div key={index} className="flex items-center gap-2">
+                    <code
+                      className={`rounded px-1.5 py-0.5 text-xs font-mono ${
+                        isErrorFn
+                          ? 'bg-red-500/10 text-red-300 border border-red-500/30'
+                          : 'bg-zinc-800/30 text-zinc-500 border border-zinc-800'
+                      }`}
+                    >
+                      {fn}
+                    </code>
+                    {isErrorFn && (
+                      <span className="text-[10px] uppercase tracking-wide text-red-400">Error</span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

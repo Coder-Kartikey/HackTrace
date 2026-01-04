@@ -1,14 +1,28 @@
 import { Activity, Filter } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { fetchAllTraces } from '../api';
-import { mockTraces, type TraceListItem as TraceListItemType } from '../mockData';
+import { getTraces } from '../api';
+import { type TraceListItem as TraceListItemType } from '../mockData';
 import { TraceListItem } from './TraceListItem';
+
+// interface TraceListProps {
+//   traces: {
+//     _id: string;
+//     session: { label: string };
+//     source: string;
+//     pattern: {
+//       type: string;
+//       errorFn?: string;
+//       failurePath?: string[];
+//     };
+//     createdAt: string;
+//   }[];
+// }
+
 
 export function TraceList() {
   const [traces, setTraces] = useState<TraceListItemType[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [usingFallback, setUsingFallback] = useState<boolean>(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -39,31 +53,21 @@ export function TraceList() {
     const loadTraces = async () => {
       setLoading(true);
       setError(null);
-      setUsingFallback(false);
 
       try {
-        const data = await fetchAllTraces();
+        const data = await getTraces();
         const normalized = Array.isArray(data)
           ? (data.map(mapApiTrace).filter(Boolean) as TraceListItemType[])
           : [];
 
-        if (normalized.length && isMounted) {
-          setTraces(normalized);
-          return;
-        }
-
-        // If API returns empty or unusable data, fall back to mock samples
         if (isMounted) {
-          setTraces(mockTraces);
-          setUsingFallback(true);
-          setError('Live data unavailable. Showing sample traces.');
+          setTraces(normalized);
         }
       } catch (err) {
         console.error('Failed to fetch traces', err);
         if (isMounted) {
-          setTraces(mockTraces);
-          setUsingFallback(true);
-          setError('Could not load live traces. Showing sample data.');
+          setError(`Error loading traces: ${err instanceof Error ? err.message : 'Unknown error'}`);
+          setTraces([]);
         }
       } finally {
         if (isMounted) setLoading(false);
@@ -132,11 +136,9 @@ export function TraceList() {
         ))}
       </div>
 
-      {!loading && !traces.length && (
+      {!loading && !traces.length && !error && (
         <div className="mt-6 rounded-lg border border-zinc-800 bg-zinc-900/50 p-6 text-center text-sm text-zinc-400">
-          {usingFallback
-            ? 'No sample traces available.'
-            : 'No traces found yet.'}
+          No traces found yet.
         </div>
       )}
     </div>
