@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import Timeline from "../components/Timeline";
 import TraceList from "../components/TraceList";
 import { fetchAllTraces, fetchTraceById } from "../api";
+import ExecutionGraph from "../components/ExecutionGraph";
+import { traceToGraph } from "../utils/traceToGraph";
+import PatternBadge from "../components/PatternBadge";
+
 
 type TraceType = any;
 
@@ -11,6 +15,9 @@ export default function Dashboard() {
 
   const [compareMode, setCompareMode] = useState(false);
   const [compareTraces, setCompareTraces] = useState<TraceType[]>([]);
+
+  const [viewMode, setViewMode] = useState<"timeline" | "graph">("timeline");
+
 
   const [loading, setLoading] = useState(false);
 
@@ -45,6 +52,29 @@ export default function Dashboard() {
       <div className="w-72 border-r bg-gray-800 p-4">
         <h2 className="text-lg font-bold mb-4">Trace History</h2>
 
+        <div className="mb-4 flex gap-2">
+          <button
+            onClick={() => setViewMode("timeline")}
+            className={`px-3 py-1 rounded ${viewMode === "timeline"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-200"
+              }`}
+          >
+            Timeline
+          </button>
+
+          <button
+            onClick={() => setViewMode("graph")}
+            className={`px-3 py-1 rounded ${viewMode === "graph"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-200"
+              }`}
+          >
+            Execution Graph
+          </button>
+        </div>
+
+
         <button
           onClick={() => {
             setCompareMode(!compareMode);
@@ -73,7 +103,17 @@ export default function Dashboard() {
               subtitle={new Date(activeTrace.createdAt).toLocaleString()}
             />
 
-            <TimelineSection trace={activeTrace.trace} />
+            {/* Pattern Insight */}
+            <PatternBadge pattern={activeTrace.pattern} />
+
+
+            {viewMode === "timeline" ? (
+              <Timeline trace={activeTrace.trace} />
+            ) : (
+              <ExecutionGraph
+                graph={traceToGraph(activeTrace.trace)}
+              />
+            )}
 
             <TextBlock title="AI Explanation" text={activeTrace.explanation} />
 
@@ -167,11 +207,10 @@ function TextBlock({
     <>
       <h3 className="text-lg font-semibold mt-6 mb-2">{title}</h3>
       <div
-        className={`border rounded p-4 ${
-          highlight
-            ? "bg-green-50 border-green-200"
-            : "bg-white"
-        }`}
+        className={`border rounded p-4 ${highlight
+          ? "bg-green-50 border-green-200"
+          : "bg-white"
+          }`}
       >
         {text}
       </div>

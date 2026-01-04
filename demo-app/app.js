@@ -1,8 +1,12 @@
 const axios = require("axios");
-const { startTrace, stopTrace, traceFn } = require("../sdk/hacktrace");
+const {
+  startTrace,
+  stopTrace,
+  traceFn
+} = require("../sdk/hacktrace");
 
 startTrace({
-  label: "User fetch flow (async)"
+  label: "User fetch flow (pattern test)"
 });
 
 const fetchFromDB = traceFn("fetchFromDB", async () => {
@@ -25,11 +29,12 @@ async function run() {
     const payload = stopTrace();
 
     await axios.post("http://localhost:5000/api/traces", {
-      ...payload,
+      trace: payload.trace,
+      session: payload.session,
       source: "demo-app"
     });
 
-    console.log("✅ Session trace sent");
+    console.log("✅ Trace with pattern sent");
   }
 }
 
