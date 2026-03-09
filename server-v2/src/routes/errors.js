@@ -4,6 +4,8 @@ const ErrorGroup = require("../models/ErrorGroup");
 
 router.get("/", async (req, res) => {
   const apiKey = req.headers["x-api-key"];
+  const page = parseInt(req.query.page) || 1;
+  const limit = 20;
 
   if (!apiKey) {
     return res.status(401).json({ error: "Missing API key" });
@@ -12,7 +14,8 @@ router.get("/", async (req, res) => {
   try {
     const errors = await ErrorGroup.find({ apiKey })
       .sort({ occurrences: -1 })
-      .limit(50);
+      .skip((page - 1) * limit)
+      .limit(limit);
 
     res.json(errors);
   } catch (error) {
