@@ -7,11 +7,14 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "sideEffects": false,
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts",
@@ -20,7 +23,11 @@
   "author": "CoderKP",
   "license": "ISC",
   "devDependencies": {
+    "@types/node": "^25.4.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "async_hooks": "^1.0.0"
   }
 }

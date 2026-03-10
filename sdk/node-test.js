@@ -1,4 +1,4 @@
-import * as HackTrace from "./../sdk-v2/dist/index.mjs";
+import * as HackTrace from "./dist/index.mjs";
 
 async function run() {
   HackTrace.init({
