@@ -1,14 +1,26 @@
 {
   "name": "server-v2",
   "version": "2.0.0",
-  "description": "Hacktrace server",
-  "main": "server.js",
+  "description": "HackTrace ingestion and analytics API server.",
+  "main": "src/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js"
   },
-  "keywords": [],
+  "keywords": [
+    "express",
+    "mongodb",
+    "tracing",
+    "analytics",
+    "errors",
+    "observability"
+  ],
   "author": "CoderKP",
   "license": "ISC",
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
@@ -16,6 +28,7 @@
     "mongoose": "^9.2.2"
   },
   "devDependencies": {
+    "mongodb-memory-server": "^10.1.4",
     "nodemon": "^3.1.14"
   }
 }

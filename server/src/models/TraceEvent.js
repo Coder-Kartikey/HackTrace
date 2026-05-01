@@ -5,6 +5,7 @@ const TraceEventSchema = new mongoose.Schema({
 
   traceId: { type: String, required: true },
   parentId: { type: String },
+  rootTraceId: { type: String, index: true },
 
   sessionId: { type: String, required: true, index: true },
 
@@ -32,9 +33,9 @@ const TraceEventSchema = new mongoose.Schema({
   duration: Number,
   timestamp: { type: Date, default: Date.now, index: true },
 
-  fingerprint: { type: String, index: true },
-
+  
   error: {
+    fingerprint: { type: String, index: true },
     name: String,
     message: String,
     stack: String
@@ -50,5 +51,9 @@ const TraceEventSchema = new mongoose.Schema({
   }
 
 }, { timestamps: true });
+
+TraceEventSchema.index({ apiKey: 1, traceId: 1 });
+TraceEventSchema.index({ apiKey: 1, rootTraceId: 1, timestamp: 1 });
+TraceEventSchema.index({ apiKey: 1, "error.fingerprint": 1, timestamp: -1 });
 
 module.exports = mongoose.model("TraceEvent", TraceEventSchema);

@@ -5,6 +5,7 @@ interface InternalState {
   sessionId: string;
   runtime: Runtime;
   initialized: boolean;
+  lifecycle: "active" | "shutdown";
 }
 
 const defaultConfig: Required<HackTraceConfig> = {
@@ -23,7 +24,7 @@ export function initializeState(
   config: HackTraceConfig,
   runtime: Runtime
 ) {
-  if (state?.initialized) {
+  if (state?.initialized && state.lifecycle === "active") {
     return state;
   }
 
@@ -37,6 +38,7 @@ export function initializeState(
     runtime,
     sessionId: generateSessionId(),
     initialized: true,
+    lifecycle: "active",
   };
 
   return state;
@@ -47,6 +49,16 @@ export function getState() {
     throw new Error("HackTrace not initialized. Call HackTrace.init() first.");
   }
   return state;
+}
+
+export function isActive(): boolean {
+  return state?.initialized === true && state.lifecycle === "active";
+}
+
+export function markShutdown(): void {
+  if (state) {
+    state.lifecycle = "shutdown";
+  }
 }
 
 function generateSessionId(): string {

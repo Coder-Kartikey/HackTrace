@@ -1,41 +1,111 @@
 const TraceEvent = require("../models/TraceEvent");
 const ErrorGroup = require("../models/ErrorGroup");
 
-async function ingestEvents(apiKey, events) {
+const SEVERITY_RANK = {
+  info: 0,
+  warning: 1,
+  critical: 2,
+};
 
-  for (const event of events) {
-
-    await TraceEvent.create({
-      apiKey,
-      ...event,
-      timestamp: new Date(event.timestamp)
-    });
-
-    if (event.status === "error" && event.error?.fingerprint) {
-
-      await ErrorGroup.updateOne(
-        { apiKey, fingerprint: event.error.fingerprint },
-        {
-          $inc: { occurrences: 1 },
-          $set: {
-            lastSeen: new Date(),
-            severity: event.severity
-          },
-          $setOnInsert: {
-            firstSeen: new Date(),
-            errorName: event.error?.name,
-            fingerprint: event.error.fingerprint,
-            message: event.error?.message
-          },
-          $addToSet: {
-            affectedFunctions: event.name,
-            environments: event.environment?.appEnvironment
-          }
-        },
-        { upsert: true }
-      );
-    }
-  }
+function normalizeTimestamp(timestamp) {
+  return new Date(timestamp);
 }
 
-module.exports = { ingestEvents };
+function chooseHigherSeverity(currentSeverity, nextSeverity) {
+  return (SEVERITY_RANK[nextSeverity] ?? 0) > (SEVERITY_RANK[currentSeverity] ?? 0)
+    ? nextSeverity
+    : currentSeverity;
+}
+
+function buildErrorGroupUpdates(events) {
+  const groupedErrors = new Map();
+
+  for (const event of events) {
+    if (event.status !== "error" || !event.error?.fingerprint) {
+      continue;
+    }
+
+    const timestamp = normalizeTimestamp(event.timestamp);
+    const existingGroup = groupedErrors.get(event.error.fingerprint);
+
+    if (!existingGroup) {
+      groupedErrors.set(event.error.fingerprint, {
+        fingerprint: event.error.fingerprint,
+        errorName: event.error.name,
+        message: event.error.message,
+        firstSeen: timestamp,
+        lastSeen: timestamp,
+        occurrences: 1,
+        severity: event.severity,
+        affectedFunctions: new Set([event.name]),
+        environments: new Set(event.environment?.appEnvironment ? [event.environment.appEnvironment] : []),
+      });
+      continue;
+    }
+
+    existingGroup.occurrences += 1;
+    existingGroup.firstSeen = existingGroup.firstSeen < timestamp ? existingGroup.firstSeen : timestamp;
+    existingGroup.lastSeen = existingGroup.lastSeen > timestamp ? existingGroup.lastSeen : timestamp;
+    existingGroup.severity = chooseHigherSeverity(existingGroup.severity, event.severity);
+    existingGroup.affectedFunctions.add(event.name);
+    if (event.environment?.appEnvironment) {
+      existingGroup.environments.add(event.environment.appEnvironment);
+    }
+  }
+
+  return Array.from(groupedErrors.values());
+}
+
+async function ingestEvents(apiKey, events) {
+  const traceEvents = events.map((event) => ({
+    apiKey,
+    ...event,
+    timestamp: normalizeTimestamp(event.timestamp),
+  }));
+
+  await TraceEvent.insertMany(traceEvents, { ordered: true });
+
+  const groupedErrors = buildErrorGroupUpdates(events);
+  if (!groupedErrors.length) {
+    return;
+  }
+
+  await ErrorGroup.bulkWrite(
+    groupedErrors.map((group) => {
+      const update = {
+        $inc: { occurrences: group.occurrences },
+        $min: { firstSeen: group.firstSeen },
+        $max: { lastSeen: group.lastSeen },
+        $setOnInsert: {
+          errorName: group.errorName,
+          fingerprint: group.fingerprint,
+          message: group.message,
+        },
+        $addToSet: {
+          affectedFunctions: { $each: Array.from(group.affectedFunctions) },
+          environments: { $each: Array.from(group.environments) },
+        },
+      };
+
+      if (group.severity === "critical") {
+        update.$set = { severity: "critical" };
+      } else {
+        update.$setOnInsert.severity = group.severity;
+      }
+
+      return {
+        updateOne: {
+          filter: { apiKey, fingerprint: group.fingerprint },
+          update,
+          upsert: true,
+        },
+      };
+    })
+  );
+}
+
+module.exports = {
+  ingestEvents,
+  buildErrorGroupUpdates,
+  chooseHigherSeverity,
+};

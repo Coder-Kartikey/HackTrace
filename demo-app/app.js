@@ -1,116 +1,201 @@
-// const axios = require("axios");
-// const {
-//   startTrace,
-//   stopTrace,
-//   traceFn
-// } = require("../sdk/hacktrace");
+import "dotenv/config";
+import express from "express";
+import {
+  init,
+  trace,
+  startSpan,
+  endSpan,
+  shutdown
+} from "../sdk/dist/index.mjs";
+import {
+  runHealthySearchScenario,
+  runCheckoutScenario,
+  runSlowReportScenario,
+  runImportScenario,
+  runWebhookScenario,
+  runRunAllScenario
+} from "./src/scenarios.js";
+import { renderHomePage } from "./src/templates.js";
 
-// startTrace({
-//   label: "User fetch flow (pattern test)"
-// });
+const port = Number.parseInt(process.env.DEMO_PORT ?? "4010", 10);
+const dashboardUrl = process.env.DEMO_DASHBOARD_URL ?? "http://localhost:3000";
+const backendUrl = process.env.HACKTRACE_BASE_URL ?? "http://localhost:3001";
+const ingestionEndpoint = process.env.HACKTRACE_ENDPOINT ?? `${backendUrl}/events`;
+const apiKey = process.env.HACKTRACE_API_KEY ?? "test";
 
-// const fetchFromDB = traceFn("fetchFromDB", async () => {
-//   await new Promise((res) => setTimeout(res, 100));
-//   parseUser();
-// });
-
-// const parseUser = traceFn("parseUser", () => {
-//   throw new Error("User ID missing");
-// });
-
-// const getUser = traceFn("getUser", async () => {
-//   await fetchFromDB();
-// });
-
-// async function run() {
-//   try {
-//     await getUser();
-//   } catch (err) {
-//     const payload = stopTrace();
-
-//     await axios.post("http://localhost:5000/api/traces", {
-//       trace: payload.trace,
-//       session: payload.session,
-//       source: "demo-app"
-//     });
-
-//     console.log("✅ Trace with pattern sent");
-//   }
-// }
-
-// run();
-
-
-
-
-
-
-import * as HackTrace from "./../sdk-v2/dist/index.mjs";
-async function run() {
-HackTrace.init({
-  apiKey: "test",
-  endpoint: "http://127.0.0.1:3000/events",
-  batchSize: 3,
+init({
+  apiKey,
+  endpoint: ingestionEndpoint,
+  batchSize: 5,
   flushInterval: 2000,
   sampleRate: 1,
-  autoCapture: true
+  autoCapture: false,
+  environment: "development"
 });
 
-// await Promise.all(
-//   Array.from({ length: 20 }).map((_, i) =>
-//     HackTrace.trace(`req-${i}`, async () => {
-//       await new Promise(r => setTimeout(r, Math.random() * 100));
-//       await HackTrace.trace(`req-${i}-inner`, async () => {});
-//     })
-//   )
-// );
+const app = express();
+app.use(express.json());
 
-await HackTrace.trace("browser-basic", () => {
-  console.log("Hello world");
-});
+function maskApiKey(value) {
+  if (!value) {
+    return "not-set";
+  }
 
-// fetch("http://localhost:3000/events", {
-//   method: "POST",
-//   headers: { "Content-Type": "application/json" },
-//   body: JSON.stringify({ test: "direct" })
-// })
-// .then(res => res.text())
-// .then(console.log)
-// .catch(console.error);
+  if (value.length <= 4) {
+    return `${"*".repeat(Math.max(value.length - 1, 0))}${value.slice(-1)}`;
+  }
 
-// await HackTrace.trace("outer", async () => {
-//   await HackTrace.trace("inner", async () => {
-//     await new Promise(r => setTimeout(r, 100));
-//   });
-// });
-await HackTrace.trace("errorTest", () => {
-  throw new Error("Manual error test");
-});
-await new Promise(r => setTimeout(() => {
-  throw new Error("Global browser crash");
-}, 1000));
-await HackTrace.trace("errorTest", () => {
-  throw new Error("Backend grouping test");
-});
-// await new Promise(r => setTimeout(() => {
-//   throw new Error("Global browser crash");
-// }, 500));
-// await new Promise(r => setTimeout(() => {
-//   throw new Error("Global browser crash");
-// }, 500));
-
-// for (let i = 0; i < 10; i++) {
-//   await HackTrace.trace("spam", () => {});
-// }
-
-
-
-// setTimeout(() => {
-//   throw new Error("Browser crash test");
-// }, 1000);
-
-await HackTrace.shutdown();
-
+  return `${value.slice(0, 2)}${"*".repeat(value.length - 4)}${value.slice(-2)}`;
 }
 
-run();
+function scenarioRoute(name, handler) {
+  return async (req, res) => {
+    try {
+      const result = await trace(name, () => handler(req), {
+        metadata: {
+          method: req.method,
+          path: req.path,
+          query: req.query
+        },
+        tags: ["demo-app", "scenario"]
+      });
+
+      res.json({
+        ok: true,
+        scenario: name,
+        result
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        scenario: name,
+        error: {
+          name: error.name,
+          message: error.message
+        }
+      });
+    }
+  };
+}
+
+app.get("/", async (_req, res) => {
+  const statusSpan = startSpan("demo.home.render");
+
+  try {
+    res.type("html").send(
+      renderHomePage({
+        demoPort: port,
+        backendUrl,
+        dashboardUrl,
+        ingestionEndpoint,
+        apiKey: maskApiKey(apiKey)
+      })
+    );
+  } finally {
+    endSpan(statusSpan);
+  }
+});
+
+app.get("/health", (_req, res) => {
+  res.json({
+    status: "ok",
+    service: "hacktrace-demo-app"
+  });
+});
+
+app.get(
+  "/api/config",
+  scenarioRoute("demo.config", async () => ({
+    demoPort: port,
+    backendUrl,
+    dashboardUrl,
+    ingestionEndpoint,
+    apiKey: maskApiKey(apiKey)
+  }))
+);
+
+app.get(
+  "/api/scenarios/healthy-search",
+  scenarioRoute("demo.healthy-search", (req) =>
+    runHealthySearchScenario({
+      query: String(req.query.query ?? "error grouping")
+    })
+  )
+);
+
+app.post(
+  "/api/scenarios/checkout",
+  scenarioRoute("demo.checkout", (req) =>
+    runCheckoutScenario({
+      failPayment:
+        String(req.query.fail ?? req.body?.fail ?? "0") === "1"
+    })
+  )
+);
+
+app.get(
+  "/api/scenarios/slow-report",
+  scenarioRoute("demo.slow-report", (req) =>
+    runSlowReportScenario({
+      rows: Number.parseInt(String(req.query.rows ?? "250"), 10)
+    })
+  )
+);
+
+app.post(
+  "/api/scenarios/import",
+  scenarioRoute("demo.bulk-import", (req) =>
+    runImportScenario({
+      failRow:
+        String(req.query.fail ?? req.body?.fail ?? "0") === "1"
+    })
+  )
+);
+
+app.post(
+  "/api/scenarios/webhook",
+  scenarioRoute("demo.webhook", (req) =>
+    runWebhookScenario({
+      failDatabase:
+        String(req.query.fail ?? req.body?.fail ?? "0") === "1"
+    })
+  )
+);
+
+app.post(
+  "/api/run-all",
+  scenarioRoute("demo.run-all", async () =>
+    runRunAllScenario()
+  )
+);
+
+const server = app.listen(port, () => {
+  console.log(`HackTrace demo app running at http://localhost:${port}`);
+  console.log(`Tracing to ${ingestionEndpoint}`);
+  console.log(`Inspect data in the dashboard at ${dashboardUrl}`);
+});
+
+async function closeServer() {
+  await shutdown().catch(() => undefined);
+
+  await new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    });
+  });
+}
+
+process.on("SIGINT", async () => {
+  await closeServer();
+  process.exit(0);
+});
+
+process.on("SIGTERM", async () => {
+  await closeServer();
+  process.exit(0);
+});

@@ -1,238 +1,137 @@
-# HackTrace 🔍
+# HackTrace
 
-A powerful error tracing and debugging SDK with a beautiful web dashboard for tracking and analyzing function execution flows in JavaScript/TypeScript applications. 
+HackTrace is an error-tracing stack with three active layers working together:
 
-🌐 **Live Demo**: [hacktrace.pages.dev](https://hacktrace.pages.dev/)
+- `sdk/`: captures traced work, span hierarchy, runtime metadata, and grouped error fingerprints
+- `server/`: ingests events, stores raw traces, groups repeated failures, and serves analytics
+- `client/`: gives developers a dashboard to onboard the SDK, triage issues, inspect grouped failures, and investigate traces
 
-## 📋 Overview
+There is also a `demo-app/` script for local experimentation and an `oldVersions/` folder kept only as historical reference.
 
-HackTrace is a comprehensive debugging and monitoring solution that helps developers: 
-- Track function execution flows in real-time
-- Capture and analyze errors with detailed stack traces
-- Visualize performance metrics and execution timelines
-- Debug complex asynchronous code paths
-- Monitor application behavior in development and production
+## Current Product Workflow
 
-## ✨ Features
+1. An app initializes the SDK with an API key and backend ingestion URL.
+2. The app wraps meaningful work with `trace()` or manual spans.
+3. The SDK captures timing, parent-child relationships, status, runtime context, and normalized error fingerprints.
+4. Batched events are sent to `POST /events` on the backend.
+5. The backend stores raw `TraceEvent` records and upserts grouped `ErrorGroup` summaries.
+6. The frontend reads analytics, grouped issues, recent failing events, and full traces from the backend.
+7. A developer uses the dashboard to move from:
+   - "what is broken?"
+   - to "where is it happening?"
+   - to "what trace explains it?"
 
-- 🎯 **Easy Integration** - Simple SDK with minimal setup
-- 📊 **Visual Dashboard** - Beautiful React-based UI for analyzing traces
-- ⚡ **Async/Sync Support** - Handles both synchronous and asynchronous functions
-- 🔍 **Detailed Stack Traces** - File, line, and column information for each trace
-- ⏱️ **Performance Metrics** - Track execution duration for each function
-- 🎨 **Modern UI** - Built with React 19, Tailwind CSS, and Recharts
-- 🔌 **RESTful API** - Express-based backend with MongoDB storage
-- 🎪 **Demo App** - Example implementation to get started quickly
+## Current Frontend Workflow
 
-## 🏗️ Architecture
+The dashboard is no longer just a smoke-test UI. It now supports:
 
-The project consists of four main components:
+- overview dashboard with health, trend, top errors, severity mix, and investigation queue
+- grouped errors explorer with URL-driven filters
+- grouped error detail with stack trace, environment context, recent events, and related trace preview
+- trace viewer with tree, timeline, span browser, metadata panel, and focused-span URL state
+- setup page with SDK onboarding snippets and troubleshooting
+- settings page for frontend/backend configuration visibility
 
-```
-HackTrace/
-├── sdk/          # JavaScript SDK for tracing functions
-├── server/       # Express backend API
-├── client/       # React frontend dashboard
-└── demo-app/     # Example application
-```
+## Tech Stack
 
-### Technology Stack
+### SDK
 
-**Frontend (Client)**
-- React 19.2.0
 - TypeScript
-- Vite
-- Tailwind CSS 4.x
-- React Router 7.x
-- Recharts (for visualizations)
-- Lucide React (icons)
+- `tsup`
+- Node `AsyncLocalStorage`
+- browser context helpers and `bindContext()`
+- buffered `fetch` transport
 
-**Backend (Server)**
+### Backend
+
 - Node.js
-- Express 5.x
-- MongoDB with Mongoose
-- Google GenAI
-- CORS enabled
+- Express 5
+- MongoDB + Mongoose
+- dotenv
 
-**SDK**
-- Vanilla JavaScript
-- Zero dependencies
-- Axios for API communication
+### Frontend
 
-## 🚀 Getting Started
+- Next.js 16 App Router
+- React 19
+- TypeScript
+- Tailwind CSS 4
+- Recharts
 
-### Prerequisites
+## Docs
 
-- Node.js (v14 or higher)
-- MongoDB instance
-- npm or yarn
+- SDK guide: [sdk/README.md](./sdk/README.md)
+- Backend guide: [server/README.md](./server/README.md)
+- Frontend guide: [client/README.md](./client/README.md)
+- API contract: [docs/API-CONTRACT.md](./docs/API-CONTRACT.md)
+- readiness and follow-up notes: [docs/PRE-FRONTEND-CHECKLIST.md](./docs/PRE-FRONTEND-CHECKLIST.md)
 
-### Installation
+## Local Setup
 
-1. **Clone the repository**
-```bash
-git clone https://github.com/Coder-Kartikey/HackTrace.git
-cd HackTrace
-```
-
-2. **Install dependencies**
+### Server
 
 ```bash
-# Install server dependencies
 cd server
+cp .env.example .env
 npm install
-
-# Install client dependencies
-cd ../client
-npm install
-
-# Install demo-app dependencies
-cd ../demo-app
-npm install
+npm start
 ```
 
-3. **Configure environment variables**
+Defaults:
 
-Create a `.env` file in the `server` directory:
-```env
-MONGODB_URI=your_mongodb_connection_string
-PORT=5000
-```
+- API: `http://localhost:3001`
+- health check: `GET /health`
+- API key: `test`
 
-4. **Start the services**
+### SDK
 
 ```bash
-# Terminal 1 - Start the backend server
-cd server
-node index.js
+cd sdk
+npm install
+npm test
+```
 
-# Terminal 2 - Start the frontend client
+### Client
+
+```bash
 cd client
+cp .env.example .env.local
+npm install
 npm run dev
+```
 
-# Terminal 3 - Run the demo app (optional)
+### Demo App
+
+```bash
 cd demo-app
+npm install
 node app.js
 ```
 
-## 📖 Usage
+## Verification
 
-### SDK Integration
-
-1. **Import the SDK**
-```javascript
-const { startTrace, stopTrace, traceFn } = require('./sdk/hacktrace');
-```
-
-2. **Start a trace session**
-```javascript
-startTrace({
-  label: "My Application Flow"
-});
-```
-
-3. **Wrap your functions**
-```javascript
-const myFunction = traceFn("myFunction", async () => {
-  // Your function logic here
-  await someAsyncOperation();
-});
-```
-
-4. **Handle errors and send traces**
-```javascript
-try {
-  await myFunction();
-} catch (err) {
-  const payload = stopTrace();
-  
-  await axios.post("http://localhost:5000/api/traces", {
-    trace: payload.trace,
-    session: payload.session,
-    source: "my-app"
-  });
-}
-```
-
-## 📊 Dashboard Features
-
-- **Trace List View**: Browse all captured traces with filtering options
-- **Trace Detail View**:  Detailed view of individual traces with: 
-  - Function call hierarchy
-  - Execution timeline
-  - Performance metrics
-  - Error details with stack traces
-  - File and line number information
-
-## 🛠️ Development
-
-### Client Development
+SDK:
 
 ```bash
-cd client
-npm run dev      # Start dev server
-npm run build    # Build for production
-npm run lint     # Run ESLint
-npm run preview  # Preview production build
+cd sdk
+npm test
 ```
 
-### Server Development
+Backend:
 
 ```bash
 cd server
-node index.js    # Start server on port 5000
+npm test
 ```
 
-## 📝 API Endpoints
+Frontend:
 
-### POST `/api/traces`
-Create a new trace record
-
-**Request Body:**
-```json
-{
-  "session": {
-    "id": "session-1234567890",
-    "label": "My Session"
-  },
-  "trace": {
-    "stack": [... ],
-    "totalDuration": 150,
-    "errorMessage": "Error description"
-  },
-  "source": "my-app"
-}
+```bash
+cd client
+npm run build
+npm run lint
 ```
 
-### GET `/api/traces`
-Retrieve all traces
+## Notes
 
-### GET `/api/traces/:id`
-Get a specific trace by ID
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the project
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is open source
-
-## 👤 Author
-
-**CoderKP**
-- GitHub: [@Coder-Kartikey](https://github.com/Coder-Kartikey)
-
-## 📞 Support
-
-If you have any questions or need help, please open an issue in the GitHub repository. 
-
----
-
-Made with ❤️ by CoderKP
+- `server/.env` now contains safe local placeholder values, but any previously exposed real database credential still needs to be rotated outside the repo.
+- The frontend is now ready enough for real iteration. Remaining work is mostly refinement and future product expansion, not missing foundation.

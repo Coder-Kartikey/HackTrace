@@ -4,6 +4,10 @@ import { getState } from "../state";
 export async function sendBatch(events: TraceEvent[]): Promise<void> {
   const { config } = getState();
 
+  if (typeof fetch !== "function") {
+    throw new Error("HackTrace: fetch is not available in this runtime.");
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
 
@@ -12,9 +16,6 @@ export async function sendBatch(events: TraceEvent[]): Promise<void> {
   }
 
   try {
-    console.log("Sending to:", config.endpoint);
-    console.log("Payload size:", events.length);
-    console.log("SENDING BATCH:", JSON.stringify(events, null, 2));
     const response = await fetch(config.endpoint, {
       method: "POST",
       headers: {
@@ -24,7 +25,6 @@ export async function sendBatch(events: TraceEvent[]): Promise<void> {
       body: JSON.stringify({ events }),
       signal: controller.signal,
     });
-    console.log("Response status:", response.status);
 
     clearTimeout(timeout);
 

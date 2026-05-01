@@ -1,7 +1,7 @@
 {
   "name": "hacktrace",
   "version": "2.0.0",
-  "description": "sdk",
+  "description": "Tracing SDK for capturing function spans, runtime errors, and grouped diagnostics.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -10,15 +10,39 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "sideEffects": false,
+  "keywords": [
+    "tracing",
+    "observability",
+    "errors",
+    "monitoring",
+    "debugging",
+    "sdk"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Coder-Kartikey/HackTrace.git"
+  },
+  "homepage": "https://github.com/Coder-Kartikey/HackTrace",
+  "bugs": {
+    "url": "https://github.com/Coder-Kartikey/HackTrace/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts",
-    "dev": "tsup src/index.ts --format cjs,esm --dts --watch"
+    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "npm run clean && tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "test": "npm run build && node --test --test-concurrency=1 test/*.test.mjs",
+    "prepublishOnly": "npm test"
   },
   "author": "CoderKP",
   "license": "ISC",

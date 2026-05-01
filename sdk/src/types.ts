@@ -18,6 +18,7 @@ export interface HackTraceConfig {
 export interface TraceEvent {
   traceId: string;
   parentId?: string;
+  rootTraceId?: string;
   sessionId: string;
 
   name: string;

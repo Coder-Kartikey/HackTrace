@@ -4,11 +4,7 @@ const ErrorGroup = require("../models/ErrorGroup");
 const TraceEvent = require("../models/TraceEvent");
 
 router.get("/top-errors", async (req, res) => {
-  const apiKey = req.headers["x-api-key"];
-
-  if (!apiKey) {
-    return res.status(401).json({ error: "Missing API key" });
-  }
+  const apiKey = req.apiKey;
 
   try {
     const topErrors = await ErrorGroup.find({ apiKey })
@@ -23,11 +19,7 @@ router.get("/top-errors", async (req, res) => {
 });
 
 router.get("/error-trend", async (req, res) => {
-  const apiKey = req.headers["x-api-key"];
-
-  if (!apiKey) {
-    return res.status(401).json({ error: "Missing API key" });
-  }
+  const apiKey = req.apiKey;
 
   try {
     const trend = await TraceEvent.aggregate([

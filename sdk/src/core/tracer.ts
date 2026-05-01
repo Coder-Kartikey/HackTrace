@@ -1,10 +1,9 @@
 import { generateId } from "./id";
-import { pushSpan, popSpan, getCurrentSpan } from "../context";
+import { pushSpan, popSpan, getCurrentSpan, getRootSpan, runWithContext } from "../context";
 import { buildEvent } from "./eventBuilder";
 import { processEvent } from "../transport/batcher";
 import { shouldSample } from "./sampling";
-import { runWithContext } from "../context";
-import { detectRuntime } from "../runtime/detectRuntime";
+import { isActive } from "../state";
 
 export async function trace<T>(
   name: string,
@@ -14,16 +13,18 @@ export async function trace<T>(
     tags?: string[];
   }
 ): Promise<T> {
+  if (!isActive()) {
+    return await fn();
+  }
 
   if (!shouldSample()) {
     return await fn();
   }
-  
-  const runtime = detectRuntime();
+
   const parentId = getCurrentSpan();
 
   if (!parentId) {
-    return runWithContext(() => executeTrace(name, fn, options));
+    return runWithContext(() => executeTrace(name, fn, options), []);
   }
 
   return executeTrace(name, fn, options);
@@ -40,6 +41,7 @@ async function executeTrace<T>(
 
   const traceId = generateId();
   const parentId = getCurrentSpan();
+  const rootTraceId = getRootSpan() || traceId;
 
   pushSpan(traceId);
 
@@ -53,6 +55,7 @@ async function executeTrace<T>(
     const event = buildEvent({
       traceId,
       parentId,
+      rootTraceId,
       name,
       type: "function",
       status: "success",
@@ -70,6 +73,7 @@ async function executeTrace<T>(
     const event = buildEvent({
       traceId,
       parentId,
+      rootTraceId,
       name,
       type: "function",
       status: "error",

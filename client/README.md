@@ -1,73 +1,56 @@
-# React + TypeScript + Vite
+# HackTrace Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This frontend is the investigation workspace for HackTrace. It is built with Next.js App Router and is designed to help developers:
 
-Currently, two official plugins are available:
+- see what is breaking right now
+- triage grouped errors quickly
+- inspect a failing trace end to end
+- onboard the SDK without leaving the product
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Routes
 
-## React Compiler
+- `/` overview dashboard
+- `/errors` grouped error explorer
+- `/errors/[fingerprint]` grouped error investigation
+- `/traces/[traceId]` full trace viewer
+- `/setup` SDK onboarding and verification
+- `/settings` frontend configuration reference
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Environment
 
-## Expanding the ESLint configuration
+Create a local `.env.local` file:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:3001
+HACKTRACE_API_KEY=test
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The client talks to the backend contract documented in [docs/API-CONTRACT.md](../docs/API-CONTRACT.md).
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Development
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
+
+Useful commands:
+
+```bash
+npm run build
+npm run lint
+```
+
+## Frontend Workflow
+
+1. Overview shows health, top errors, trend, severity mix, and investigation queue.
+2. Errors explorer uses URL-driven filters for search, severity, environment, sort, and time range.
+3. Error detail combines grouped summary, stack trace, recent events, environment info, occurrence sample, and related trace preview.
+4. Trace view supports tree navigation, timeline inspection, span search, metadata inspection, and URL-linked focused spans.
+5. Setup helps developers install the SDK, initialize it, send a test failure, and verify backend connectivity.
+
+## Notes
+
+- The dashboard is env-driven now and no longer hardcodes API values in source.
+- The trace view syncs the selected span using the `focus` query param.
+- Setup snippets are copyable from the UI to speed up onboarding.

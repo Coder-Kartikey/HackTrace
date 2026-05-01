@@ -1,10 +1,13 @@
 import { TraceEvent, Severity } from "../types";
 import { getState } from "../state";
 import { SDK_VERSION } from "../version";
+import { classifyError } from "../intelligence/classify";
+import { generateFingerprint } from "../intelligence/fingerprint";
 
 interface BuildEventParams {
   traceId: string;
   parentId?: string;
+  rootTraceId?: string;
   name: string;
   type: "span" | "function" | "manual";
   status: "success" | "error";
@@ -22,7 +25,7 @@ export function buildEvent(params: BuildEventParams): TraceEvent {
   let errorData;
 
   if (params.error) {
-    severity = "warning";
+    severity = classifyError(params.error);
 
     errorData = {
       name: params.error.name,
@@ -35,6 +38,7 @@ export function buildEvent(params: BuildEventParams): TraceEvent {
   return {
     traceId: params.traceId,
     parentId: params.parentId,
+    rootTraceId: params.rootTraceId || params.traceId,
     sessionId: state.sessionId,
     name: params.name,
     type: params.type,
@@ -51,18 +55,4 @@ export function buildEvent(params: BuildEventParams): TraceEvent {
       appEnvironment: state.config.environment,
     },
   };
-}
-
-function generateFingerprint(error: Error): string {
-  const base = error.message + (error.stack?.split("\n")[1] || "");
-  return hash(base);
-}
-
-function hash(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return hash.toString();
 }

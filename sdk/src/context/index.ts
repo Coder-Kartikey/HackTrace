@@ -8,6 +8,9 @@ const context =
   runtime === "node" ? nodeContext : browserContext;
 
 export const runWithContext = context.runWithContext;
+export const hasContext = context.hasContext;
+export const bindContext = context.bindContext;
 export const pushSpan = context.pushSpan;
 export const popSpan = context.popSpan;
 export const getCurrentSpan = context.getCurrentSpan;
+export const getRootSpan = context.getRootSpan;

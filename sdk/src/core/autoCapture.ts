@@ -1,89 +1,116 @@
 import { getState } from "../state";
-import { generateId } from "./id";
 import { buildEvent } from "./eventBuilder";
 import { processEvent } from "../transport/batcher";
+import { generateFingerprint } from "../intelligence/fingerprint";
+import { generateId } from "./id";
 
-// const capturedFingerprints = new Set<string>();
 const fingerprintCache = new Map<string, number>();
-const DEDUPE_WINDOW = 60_000; // 1 minute
-
+const DEDUPE_WINDOW = 60_000;
+let cleanupListeners: (() => void) | null = null;
 
 export function setupAutoCapture() {
   const { runtime, config } = getState();
 
-  if (!config.autoCapture) return;
-
-  if (runtime === "browser") {
-    setupBrowserHandlers();
-  } else {
-    setupNodeHandlers();
+  if (cleanupListeners || !config.autoCapture) {
+    return cleanupListeners;
   }
+
+  cleanupListeners = runtime === "browser"
+    ? setupBrowserHandlers()
+    : setupNodeHandlers();
+
+  return cleanupListeners;
+}
+
+export function teardownAutoCapture(): void {
+  cleanupListeners?.();
+  cleanupListeners = null;
 }
 
 function setupBrowserHandlers() {
-  window.addEventListener("error", (event) => {
+  const onError = (event: ErrorEvent) => {
     if (!event.error) return;
-
     captureGlobalError(event.error);
-  });
+  };
 
-  window.addEventListener("unhandledrejection", (event) => {
+  const onUnhandledRejection = (event: PromiseRejectionEvent) => {
     if (!event.reason) return;
-
     captureGlobalError(event.reason);
-  });
+  };
+
+  window.addEventListener("error", onError);
+  window.addEventListener("unhandledrejection", onUnhandledRejection);
+
+  return () => {
+    window.removeEventListener("error", onError);
+    window.removeEventListener("unhandledrejection", onUnhandledRejection);
+  };
 }
 
 type NodeProcessLike = {
   on(event: "uncaughtException", listener: (error: unknown) => void): void;
   on(event: "unhandledRejection", listener: (reason: unknown) => void): void;
+  off?(event: "uncaughtException", listener: (error: unknown) => void): void;
+  off?(event: "unhandledRejection", listener: (reason: unknown) => void): void;
+  removeListener?(event: "uncaughtException", listener: (error: unknown) => void): void;
+  removeListener?(event: "unhandledRejection", listener: (reason: unknown) => void): void;
 };
 
 function setupNodeHandlers() {
   const proc = (globalThis as { process?: NodeProcessLike }).process;
-  if (!proc?.on) return;
-
-  proc.on("uncaughtException", (error) => {
-    captureGlobalError(error);
-  });
-
-  proc.on("unhandledRejection", (reason: any) => {
-    captureGlobalError(reason);
-  });
-}
-
-function captureGlobalError(error: any) {
-  if (!(error instanceof Error)) {
-    error = new Error(String(error));
+  if (!proc?.on) {
+    return () => undefined;
   }
 
-  const fingerprint = generateFingerprint(error);
+  const onUncaughtException = (error: unknown) => {
+    captureGlobalError(error);
+  };
 
+  const onUnhandledRejection = (reason: unknown) => {
+    captureGlobalError(reason);
+  };
+
+  proc.on("uncaughtException", onUncaughtException);
+  proc.on("unhandledRejection", onUnhandledRejection);
+
+  return () => {
+    if (proc.off) {
+      proc.off("uncaughtException", onUncaughtException);
+      proc.off("unhandledRejection", onUnhandledRejection);
+      return;
+    }
+
+    proc.removeListener?.("uncaughtException", onUncaughtException);
+    proc.removeListener?.("unhandledRejection", onUnhandledRejection);
+  };
+}
+
+function captureGlobalError(error: unknown) {
+  const normalizedError = error instanceof Error
+    ? error
+    : new Error(String(error));
+
+  const fingerprint = generateFingerprint(normalizedError);
   const now = Date.now();
   const lastSeen = fingerprintCache.get(fingerprint);
 
-  // Deduplication
   if (lastSeen && now - lastSeen < DEDUPE_WINDOW) {
-    return; // Skip duplicate within time window
+    return;
   }
 
   fingerprintCache.set(fingerprint, now);
   cleanupOldFingerprints(now);
 
-  const traceId = generateId();
-
   const event = buildEvent({
-    traceId,
+    traceId: generateId(),
     name: "GlobalError",
     type: "manual",
     status: "error",
     duration: 0,
-    error,
+    error: normalizedError,
   });
 
-  // Force critical severity
   event.severity = "critical";
-
   processEvent(event);
 }
 
@@ -93,19 +120,4 @@ function cleanupOldFingerprints(currentTime: number) {
       fingerprintCache.delete(key);
     }
   }
-}
-
-
-function generateFingerprint(error: Error): string {
-  const base = error.message + (error.stack?.split("\n")[1] || "");
-  return hash(base);
-}
-
-function hash(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return hash.toString();
 }

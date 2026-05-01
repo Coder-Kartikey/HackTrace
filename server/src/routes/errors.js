@@ -3,13 +3,9 @@ const router = express.Router();
 const ErrorGroup = require("../models/ErrorGroup");
 
 router.get("/", async (req, res) => {
-  const apiKey = req.headers["x-api-key"];
+  const apiKey = req.apiKey;
   const page = parseInt(req.query.page) || 1;
   const limit = 20;
-
-  if (!apiKey) {
-    return res.status(401).json({ error: "Missing API key" });
-  }
 
   try {
     const errors = await ErrorGroup.find({ apiKey })
@@ -25,12 +21,8 @@ router.get("/", async (req, res) => {
 });
 
 router.get("/:fingerprint", async (req, res) => {
-  const apiKey = req.headers["x-api-key"];
+  const apiKey = req.apiKey;
   const { fingerprint } = req.params;
-
-  if (!apiKey) {
-    return res.status(401).json({ error: "Missing API key" });
-  }
 
   try {
     const errorGroup = await ErrorGroup.findOne({
@@ -43,7 +35,9 @@ router.get("/:fingerprint", async (req, res) => {
     }
 
     const relatedEvents = await require("../models/TraceEvent")
-      .find({ apiKey, fingerprint })
+      .find({
+        apiKey,
+        "error.fingerprint": fingerprint })
       .sort({ timestamp: -1 })
       .limit(20);
 

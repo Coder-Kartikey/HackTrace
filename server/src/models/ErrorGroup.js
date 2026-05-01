@@ -24,5 +24,6 @@ const ErrorGroupSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 ErrorGroupSchema.index({ apiKey: 1, fingerprint: 1 }, { unique: true });
+ErrorGroupSchema.index({ apiKey: 1, occurrences: -1 });
 
 module.exports = mongoose.model("ErrorGroup", ErrorGroupSchema);
