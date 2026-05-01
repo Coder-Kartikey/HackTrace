@@ -1,5 +1,5 @@
 {
-  "name": "hacktrace",
+  "name": "hacktrace-sdk",
   "version": "2.0.0",
   "description": "Tracing SDK for capturing function spans, runtime errors, and grouped diagnostics.",
   "main": "./dist/index.js",
